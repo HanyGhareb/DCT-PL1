@@ -1,0 +1,103 @@
+# ==========================================
+# FINAL ALL-IN-ONE P&L TO EXCEL AUTOMATION
+# ==========================================
+
+# 1. INSTALL & IMPORT
+import os
+import json
+import re
+import time
+import requests
+import pandas as pd
+import fitz  # PyMuPDF
+from google.colab import userdata, files
+
+def run_full_automation():
+    # --- PREPARATION ---
+    print("Step 1: Preparing environment...")
+    !pip install -q PyMuPDF pandas openpyxl
+    
+    api_key = userdata.get('GOOGLE_API_KEY')
+    # Using the model confirmed from your personal account scanner
+    selected_model = "models/gemini-flash-latest"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{selected_model}:generateContent?key={api_key}"
+
+    # --- PDF UPLOAD & TEXT EXTRACTION ---
+    print("\nStep 2: Please upload your P&L PDF file...")
+    uploaded = files.upload()
+    if not uploaded:
+        print("No file uploaded. Task cancelled.")
+        return
+    
+    file_path = list(uploaded.keys())[0]
+    doc = fitz.open(file_path)
+    raw_pnl_text = "".join([page.get_text() for page in doc])
+    doc.close()
+    print(f"Successfully extracted {len(raw_pnl_text)} characters.")
+
+    # --- AI EXTRACTION ---
+    print(f"\nStep 3: Connecting to {selected_model} for analysis...")
+    prompt = f"""
+    Return ONLY a JSON object. Extract P&L data from the text below.
+    Keys: "company_name", "period", "currency", "line_items" (list of: "item_description", "amount", "category").
+    Category must be 'Revenue' or 'Expense'. Exclude subtotals or 'Total' lines.
+    
+    TEXT:
+    {raw_pnl_text}
+    """
+    
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    
+    # Retry logic for Free Tier Quota (429 errors)
+    for attempt in range(2):
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            break
+        elif response.status_code == 429:
+            print("Rate limit hit. Waiting 40 seconds to reset quota...")
+            time.sleep(40)
+        else:
+            print(f"Error {response.status_code}: {response.text}")
+            return
+
+    # --- DATA PROCESSING & EXCEL GENERATION ---
+    try:
+        raw_output = response.json()['candidates'][0]['content']['parts'][0]['text']
+        clean_json = re.sub(r'```json|```', '', raw_output).strip()
+        data = json.loads(clean_json)
+        
+        # Create Dataframes
+        df = pd.DataFrame(data.get('line_items', []))
+        if not df.empty:
+            df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
+            df['category'] = df['category'].astype(str).str.capitalize()
+        
+        summary_df = pd.DataFrame({
+            'Metric': ['Company', 'Period', 'Currency', 'Total Revenue', 'Total Expense', 'Net Income'],
+            'Value': [
+                data.get('company_name'), 
+                data.get('period'),
+                data.get('currency'),
+                df[df['category'] == 'Revenue']['amount'].sum() if not df.empty else 0,
+                df[df['category'] == 'Expense']['amount'].sum() if not df.empty else 0,
+                (df[df['category'] == 'Revenue']['amount'].sum() - df[df['category'] == 'Expense']['amount'].sum()) if not df.empty else 0
+            ]
+        })
+
+        # Save and Download
+        output_name = f"Report_{data.get('company_name', 'Financial')}.xlsx".replace(" ", "_")
+        with pd.ExcelWriter(output_name, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Line_Items', index=False)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+
+        print(f"\n--- SUCCESS! ---")
+        print(f"Report generated: {output_name}")
+        files.download(output_name)
+        
+    except Exception as e:
+        print(f"\nAn error occurred during final processing: {e}")
+        if 'response' in locals():
+            print("Raw AI Response:", response.text)
+
+# Execute the combined script
+run_full_automation()
