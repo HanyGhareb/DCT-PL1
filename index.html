@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P&amp;L PDF → Excel Converter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-wrapper">
+
+        <header class="app-header">
+            <div class="header-inner">
+                <div class="brand">
+                    <span class="brand-icon">&#128202;</span>
+                    <div>
+                        <h1 class="brand-title">P&amp;L to Excel Converter</h1>
+                        <p class="brand-sub">AI-powered P&amp;L extraction — upload multiple PDFs, download one Excel report</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="app-main">
+
+            <!-- ── Categorize Documents (Collapsible) ── -->
+            <section class="card card-classify" id="card-classify">
+                <button class="collapse-toggle" id="btn-classify-toggle" type="button"
+                        aria-expanded="false" aria-controls="classify-panel">
+                    <div class="toggle-left">
+                        <span class="toggle-emoji" aria-hidden="true">📂</span>
+                        <div class="toggle-text">
+                            <span class="toggle-title">Categorize Documents</span>
+                            <span class="toggle-subtitle">Sort event &amp; vendor PDFs into Contracts &middot; P&amp;L &middot; Unrelated using AI</span>
+                        </div>
+                    </div>
+                    <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+
+                <div class="collapse-panel" id="classify-panel">
+                    <div class="collapse-inner">
+                        <p class="cls-description">
+                            Automatically sort documents received from events, parties, or vendor engagements.
+                            Upload any mix of PDFs and the AI will classify each one into
+                            <strong>Contracts</strong>, <strong>P&amp;L</strong>, or <strong>Unrelated</strong>,
+                            then package them into an organised ZIP ready to download.
+                            <br><span class="cls-colab-note">&#x1F4D3;&nbsp;For bulk Google Drive folder processing, use the included
+                            <strong>DCT-Classifier-Colab.py</strong> script.</span>
+                        </p>
+
+                        <!-- Config -->
+                        <div class="cls-config-row">
+                            <div class="field-group">
+                                <label class="field-label" for="cls-api-key">Gemini API Key</label>
+                                <div class="input-row">
+                                    <input type="password" id="cls-api-key" class="text-input"
+                                           placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
+                                    <button class="icon-btn" id="cls-btn-toggle-key" type="button" title="Show / hide key">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="hint-text" style="margin-top:4px">Auto-syncs with the P&amp;L key below — enter once.</p>
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label" for="cls-model-select">AI Model</label>
+                                <select id="cls-model-select" class="select-input">
+                                    <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash — Fast &amp; Free tier</option>
+                                    <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro — Higher accuracy</option>
+                                    <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Drop zone -->
+                        <div class="drop-zone cls-drop-zone" id="cls-drop-zone" tabindex="0" role="button"
+                             aria-label="Click or drag PDF files here">
+                            <input type="file" id="cls-file-input" accept=".pdf" multiple hidden>
+                            <div class="drop-icon" aria-hidden="true">
+                                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M32 8 L20 22 H27 V40 H37 V22 H44 Z" fill="currentColor" opacity="0.25"/>
+                                    <path d="M32 8 L20 22 H27 V40 H37 V22 H44 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                                    <path d="M12 52 H52" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    <rect x="10" y="48" width="44" height="8" rx="3" fill="currentColor" opacity="0.1"/>
+                                </svg>
+                            </div>
+                            <p class="drop-primary-text">Drag &amp; drop PDFs here</p>
+                            <p class="drop-or">— or —</p>
+                            <button type="button" class="btn btn-outline-teal" id="cls-btn-browse">Browse Files</button>
+                            <p class="drop-note">Contracts, P&amp;L reports, event documents — upload any mix</p>
+                        </div>
+
+                        <!-- File queue -->
+                        <div class="file-queue" id="cls-file-queue" hidden>
+                            <div class="file-queue-header">
+                                <span class="fq-title">Files <span class="count-badge teal" id="cls-badge-count">0</span></span>
+                                <button type="button" class="text-btn danger" id="cls-btn-clear-all">Remove all</button>
+                            </div>
+                            <ul class="file-list" id="cls-file-list" role="list"></ul>
+                        </div>
+
+                        <!-- Process controls -->
+                        <div class="process-row" style="margin-top:16px">
+                            <button type="button" class="btn btn-teal btn-lg" id="cls-btn-process" disabled>
+                                <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
+                                Classify Documents
+                            </button>
+                            <div class="progress-block" id="cls-progress-block" hidden>
+                                <p class="progress-label" id="cls-progress-label">Starting…</p>
+                                <div class="progress-track">
+                                    <div class="progress-fill teal" id="cls-progress-fill" style="width:0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Results -->
+                        <div id="cls-results" hidden>
+                            <div class="cls-results-header">
+                                <h3 class="cls-results-title">
+                                    <svg class="check-icon" style="color:#0d9488" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                    Classification Results
+                                </h3>
+                                <div class="cat-legend">
+                                    <span class="cat-badge contracts">Contracts</span>
+                                    <span class="cat-badge pnl">P&amp;L</span>
+                                    <span class="cat-badge unrelated">Unrelated</span>
+                                </div>
+                            </div>
+                            <div class="cls-stats-strip" id="cls-stats-strip"></div>
+                            <div class="table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Document</th>
+                                            <th>Category</th>
+                                            <th>Reason</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cls-results-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="results-actions">
+                                <button type="button" class="btn btn-teal btn-lg" id="cls-btn-download-zip">
+                                    <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    Download Organised ZIP
+                                </button>
+                                <button type="button" class="btn btn-outline" id="cls-btn-reset">Classify More Files</button>
+                                <p class="cls-zip-note">
+                                    ZIP structure:&nbsp;
+                                    <code>Output_TIMESTAMP/Contracts/</code>&nbsp;&middot;&nbsp;
+                                    <code>P&amp;L/</code>&nbsp;&middot;&nbsp;
+                                    <code>Unrelated/</code>
+                                </p>
+                            </div>
+                        </div>
+                    </div><!-- /.collapse-inner -->
+                </div><!-- /.collapse-panel -->
+            </section>
+
+            <!-- ── Step 1: API Configuration ── -->
+            <section class="card" id="card-config">
+                <div class="card-inner">
+                    <div class="step-badge">1</div>
+                    <div class="step-body">
+                        <h2 class="step-title">API Configuration</h2>
+                        <div class="config-grid">
+                            <div class="field-group">
+                                <label class="field-label" for="api-key-input">Google Gemini API Key</label>
+                                <div class="input-row">
+                                    <input
+                                        type="password"
+                                        id="api-key-input"
+                                        class="text-input"
+                                        placeholder="AIzaSy…"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                    >
+                                    <button class="icon-btn" id="btn-toggle-key" type="button" title="Show / hide key" aria-label="Toggle key visibility">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label" for="model-select">AI Model</label>
+                                <select id="model-select" class="select-input">
+                                    <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash — Fast &amp; Free tier</option>
+                                    <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro — Higher accuracy</option>
+                                    <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="hint-text">
+                            &#128274;&nbsp;Your API key is used only in this browser and is never sent to any server other than Google&#8217;s API.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Step 2: File Upload ── -->
+            <section class="card" id="card-upload">
+                <div class="card-inner">
+                    <div class="step-badge">2</div>
+                    <div class="step-body">
+                        <h2 class="step-title">Upload PDF Files</h2>
+
+                        <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Click or drag PDF files here">
+                            <input type="file" id="file-input" accept=".pdf" multiple hidden>
+                            <div class="drop-icon" aria-hidden="true">
+                                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M32 8 L20 22 H27 V40 H37 V22 H44 Z" fill="currentColor" opacity="0.25"/>
+                                    <path d="M32 8 L20 22 H27 V40 H37 V22 H44 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                                    <path d="M12 52 H52" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    <rect x="10" y="48" width="44" height="8" rx="3" fill="currentColor" opacity="0.1"/>
+                                </svg>
+                            </div>
+                            <p class="drop-primary-text">Drag &amp; drop your PDF files here</p>
+                            <p class="drop-or">— or —</p>
+                            <button type="button" class="btn btn-outline" id="btn-browse">Browse Files</button>
+                            <p class="drop-note">Multiple PDFs supported &nbsp;·&nbsp; Text-based PDFs only (not scanned images)</p>
+                        </div>
+
+                        <div class="file-queue" id="file-queue" hidden>
+                            <div class="file-queue-header">
+                                <span class="fq-title">Queued Files <span class="count-badge" id="badge-count">0</span></span>
+                                <button type="button" class="text-btn danger" id="btn-clear-all">Remove all</button>
+                            </div>
+                            <ul class="file-list" id="file-list" role="list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Step 3: Process ── -->
+            <section class="card" id="card-process">
+                <div class="card-inner">
+                    <div class="step-badge">3</div>
+                    <div class="step-body">
+                        <h2 class="step-title">Extract &amp; Generate Report</h2>
+                        <div class="process-row">
+                            <button type="button" class="btn btn-primary btn-lg" id="btn-process" disabled>
+                                <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                Process Files
+                            </button>
+                            <div class="progress-block" id="progress-block" hidden>
+                                <p class="progress-label" id="progress-label">Starting…</p>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Results ── -->
+            <section class="card card-results" id="card-results" hidden>
+                <div class="results-header">
+                    <h2 class="results-title">
+                        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Extraction Complete
+                    </h2>
+                    <div class="stats-strip" id="stats-strip"></div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="data-table" id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Period</th>
+                                <th>Currency</th>
+                                <th class="col-num">Total Revenue</th>
+                                <th class="col-num">Total Expenses</th>
+                                <th class="col-num">Net Income</th>
+                                <th>Source File</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="results-actions">
+                    <button type="button" class="btn btn-success btn-lg" id="btn-download">
+                        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download Excel Report
+                    </button>
+                    <button type="button" class="btn btn-outline" id="btn-reset">
+                        Process More Files
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="app-footer">
+            <p>Powered by&nbsp;<strong>Google Gemini AI</strong>&nbsp;&middot;&nbsp;<strong>PDF.js</strong>&nbsp;&middot;&nbsp;<strong>SheetJS</strong>&nbsp;&middot;&nbsp;<strong>JSZip</strong></p>
+        </footer>
+    </div>
+
+    <!-- ── CDN Dependencies ── -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
