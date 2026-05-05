@@ -3,6 +3,26 @@
 //  Dependencies: PDF.js (global pdfjsLib), SheetJS (global XLSX)
 // ============================================================
 
+// ── Live Clock ────────────────────────────────────────────────
+(function startClock() {
+    const timeEl = document.getElementById('clock-time');
+    const dateEl = document.getElementById('clock-date');
+    const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MON_NAMES  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function tick() {
+        const now = new Date();
+        const h   = String(now.getHours()).padStart(2, '0');
+        const m   = String(now.getMinutes()).padStart(2, '0');
+        const s   = String(now.getSeconds()).padStart(2, '0');
+        timeEl.textContent = `${h}:${m}:${s}`;
+        dateEl.textContent = `${DAY_NAMES[now.getDay()]} ${now.getDate()} ${MON_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+    }
+
+    tick();
+    setInterval(tick, 1000);
+})();
+
 // Configure PDF.js worker (must match CDN version in index.html)
 pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
