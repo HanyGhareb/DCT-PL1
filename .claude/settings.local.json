@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:redwood.oracle.com)",
+      "WebFetch(domain:pretius.com)"
+    ]
+  }
+}
